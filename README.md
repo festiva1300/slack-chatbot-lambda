@@ -51,8 +51,7 @@ settings:
 
 依存モジュールをインストールします。 
 
-```
-Bash
+```Bash
 $ sls plugin install -n serverless-python-requirements
 $ npm i -D serverless-dotenv-plugin
 ```
@@ -60,8 +59,7 @@ $ npm i -D serverless-dotenv-plugin
 
 環境変数にSlackのBot User OAuth Token、Signing Secretおよび OpenAIのAPI Keyを設定します。 
 
-```
-Bash
+```Bash
 $ export SLACK_SIGNING_SECRET=9999999...
 $ export SLACK_BOT_TOKEN=xoxb-xxxxx....
 $ export OPENAI_API_KEY=xx-xxxxx....
