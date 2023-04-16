@@ -1,0 +1,47 @@
+frameworkVersion: '3'
+service: lambda-chatbot-app
+provider:
+  name: aws
+  # Check https://docs.aws.amazon.com/lambda/latest/dg/lambda-python.html for available versions
+  runtime: python3.9
+  # Change the region to the one you normally use.
+  region: us-east-1
+  iam:
+    role:
+      statements:
+        # Required to use Lazy Listers
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+            - lambda:InvokeAsync
+          Resource: "*"
+  environment:
+    SERVERLESS_STAGE: ${opt:stage, 'prod'}
+    # Please export these before deploying
+    SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
+    SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+
+# Endpoint List
+functions:
+  app:
+    handler: app.handler
+    events:
+      - httpApi:
+          path: /slack/events
+          method: post
+
+# Files not to be included in the upload are prefixed with an '!' mark.
+package:
+  patterns:
+    - "!.venv/**"
+    - "!.secret/**"
+    - "!node_modules/**"
+
+# Zip the dependent libraries
+plugins:
+  - serverless-python-requirements
+custom:
+  pythonRequirements:
+    zip: true
+    slim: true
