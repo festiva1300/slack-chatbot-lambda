@@ -15,6 +15,11 @@ provider:
             - lambda:InvokeFunction
             - lambda:InvokeAsync
           Resource: "*"
+        - Effect: 'Allow'
+          Action:
+            - 'dynamodb:*'
+          Resource: "*"
+
   environment:
     SERVERLESS_STAGE: ${opt:stage, 'prod'}
     # Please export these before deploying
@@ -26,10 +31,31 @@ provider:
 functions:
   app:
     handler: app.handler
+    timeout: 25
     events:
       - httpApi:
           path: /slack/events
           method: post
+
+resources:
+  Resources:
+    ExampleTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        TableName: "lambda-chatbot-app-history"
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+          - AttributeName: "timestamp"
+            AttributeType: "N"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+          - AttributeName: "timestamp"
+            KeyType: "RANGE"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
 # Files not to be included in the upload are prefixed with an '!' mark.
 package:

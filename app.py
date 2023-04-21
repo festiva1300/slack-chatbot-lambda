@@ -8,12 +8,19 @@ import os
 from xmlrpc.client import SYSTEM_ERROR
 from slack_bolt import App
 import openai
-import json
+import boto3
+import time
 
+dynamodb = boto3.resource('dynamodb')
+TABLE_NAME = 'lambda-chatbot-app-history'
+
+table = dynamodb.Table(TABLE_NAME)
 
 COMMAND = '/chat'
 MODEL = "gpt-3.5-turbo"
-SYSTEM_CONTENT = "あなたは優秀なアシスタントです。"
+SYSTEM_CONTENT = "You are an excellent assistant."
+MAX_HISTORY = 20
+OPENAI_API_TIMEOUT = 20
 
 # OPENAIのAPI KEY
 api_key=os.environ["OPENAI_API_KEY"]
@@ -40,31 +47,82 @@ def respond_to_slack_within_3_seconds(body, ack):
         ack(f":x: Usage: {COMMAND} (prompt here)")
     else:
         title = body["text"]
-        ack(f"Accepted! (task: {title})")
+        ack(f"質問に回答中... ({title})")
 
 
 def process_request(respond, body):
     
     prompt = body["text"]
-    answer = send_prompt(prompt)
+    user_id = body["user_id"]
+    answer = send_prompt(user_id, prompt)
     respond(f"{answer}")
 
-def send_prompt(prompt=''):
+def send_prompt(user_id, prompt=''):
 
 	# promptがない場合
     if not prompt:
         return
 
-    response = openai.ChatCompletion.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_CONTENT},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0,
-    )
+    answer = ''
 
-    return response['choices'][0]['message']['content']
+    try:        
+        # 24時間前のUnix Time
+        one_day_ago = int(time.time()) - 24 * 60 * 60
+
+        # dynamoDBにプロンプトを保存
+        items = [
+            {
+                'id': user_id,
+                'timestamp': int(time.time()),
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+
+        # dynamoDBから過去履歴を取得
+        response = table.query(
+            KeyConditionExpression="id = :id and #ts >= :timestamp",
+            ExpressionAttributeNames={"#ts": "timestamp"},
+            ExpressionAttributeValues={
+                ":id": user_id,
+                ":timestamp": one_day_ago
+            },
+            ScanIndexForward=False, 
+            Limit=MAX_HISTORY
+        )
+
+        # 過去履歴からメッセージを生成
+        messages = [{"role": "system", "content": SYSTEM_CONTENT}]
+        for item in response['Items']:
+            messages.append({"role": item["role"], "content": item["content"]})
+
+        messages.append({"role": "user", "content": prompt})
+
+        # 回答を生成
+        response = openai.ChatCompletion.create(
+            model=MODEL,
+            messages=messages,
+            temperature=0,
+            timeout = OPENAI_API_TIMEOUT
+        )
+        answer = response['choices'][0]['message']['content']
+
+        # dynamoDBに回答を挿入
+        items.append({
+            'id': user_id,
+            'timestamp': int(time.time()),
+            'role': 'assistant',
+            'content': answer
+        })
+        with table.batch_writer() as batch:
+            for item in items:
+                batch.put_item(Item=item)
+
+    except Exception as e:
+        answer = f"例外が発生しました: {str(e)}"
+
+    return answer
+
 
 app.command(COMMAND)(ack=respond_to_slack_within_3_seconds, lazy=[process_request])
 
