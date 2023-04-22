@@ -16,11 +16,11 @@ TABLE_NAME = 'lambda-chatbot-app-history'
 
 table = dynamodb.Table(TABLE_NAME)
 
-COMMAND = '/chat'
-MODEL = "gpt-3.5-turbo"
+COMMAND = os.environ["SLACK_COMMAND"]
+MODEL = os.environ["OPENAI_MODEL"]
 SYSTEM_CONTENT = "You are an excellent assistant."
 MAX_HISTORY = 20
-OPENAI_API_TIMEOUT = 20
+OPENAI_API_TIMEOUT = 50
 
 # OPENAIのAPI KEY
 api_key=os.environ["OPENAI_API_KEY"]
