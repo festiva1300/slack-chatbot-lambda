@@ -43,21 +43,37 @@ app = App(
 )
 
 def respond_to_slack_within_3_seconds(body, ack):
-    if body.get("text") is None:
-        ack(f":x: Usage: {COMMAND} (prompt here)")
-    else:
-        title = body["text"]
-        ack(f"質問に回答中... ({title})")
+    # リスナーの処理を 3 秒以内に完了
+    logging.debug(body)
+    ack()
 
 
 def process_request(respond, body):
-    
-    prompt = body["text"]
-    user_id = body["user_id"]
+    # メンションのメッセージに対して返信する
+    logging.debug(body)
+
+    ts = body["event"]["ts"]
+    prompt = body["event"]["text"]
+    channel_id = body["event"]["channel"]
+    user_id = body["event"]["user"]
     answer = send_prompt(user_id, prompt)
-    respond(f"{answer}")
+    post_message(channel_id, ts, f"<@{user_id}> {answer}")
+
+
+def post_message(channel_id, thread_td, message):
+    # スレッドに対してメッセージを返信する
+    try:
+        result = app.client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=thread_td,
+            text=message,
+            reply_broadcast = True
+        )
+    except Exception as e:
+        logging.error("Error sending postMessage event: {}".format(e))
 
 def send_prompt(user_id, prompt=''):
+    # 対話履歴と最新のメンションの内容からプロンプトを作成してチャットモデルに送信する
 
 	# promptがない場合
     if not prompt:
@@ -123,16 +139,14 @@ def send_prompt(user_id, prompt=''):
 
     return answer
 
-
-app.command(COMMAND)(ack=respond_to_slack_within_3_seconds, lazy=[process_request])
-
+# メンションに反応するように設定
+app.event("app_mention")(ack=respond_to_slack_within_3_seconds, lazy=[process_request])
 
 if __name__ == "__main__":
     # python app.py のように実行すると開発用 Web サーバーで起動します
     app.start()
 
 # これより以降は AWS Lambda 環境で実行したときのみ実行されます
-
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 
 # ロギングを AWS Lambda 向けに初期化します

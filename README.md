@@ -4,6 +4,7 @@ AWS Lambda で動作する ChatGPT モデルを使用した Slack Bot
 
 ## 動作環境
 
+* AWS CLI 2.11
 * python 3.9
 * Serverless Framework 3.29
 
@@ -27,7 +28,7 @@ display_information:
   name: lambda-chatbot-app
 features:
   bot_user:
-    display_name: lambda-chatbot-app
+    display_name: chatbot
     always_online: true
   slash_commands:
     - command: /chat
@@ -76,8 +77,8 @@ $ sls deploy
 
 ### 実行方法
 
-slackのチャンネルなどで、以下のコマンドを実行します。 
+slackのチャンネルなどで、botにメンションを付けて質問などを行います 
 
 ```
-/chat 質問内容
+@lambda-chatbot-app 質問内容
 ```
