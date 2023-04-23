@@ -30,19 +30,17 @@ features:
   bot_user:
     display_name: chatbot
     always_online: true
-  slash_commands:
-    - command: /chat
-      url: https://example.execute-api.us-east-1.amazonaws.com/slack/events
-      description: Please write your question to the bot here.
-      usage_hint: /chat text
-      should_escape: false
 oauth_config:
   scopes:
     bot:
-      - commands
       - chat:write
       - chat:write.public
+      - app_mentions:read
 settings:
+  event_subscriptions:
+    request_url: https://example.execute-api.us-east-1.amazonaws.com/slack/events
+    bot_events:
+      - app_mention
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false
@@ -80,5 +78,5 @@ $ sls deploy
 slackのチャンネルなどで、botにメンションを付けて質問などを行います 
 
 ```
-@lambda-chatbot-app 質問内容
+@chatbot 質問内容
 ```
