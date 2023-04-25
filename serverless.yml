@@ -32,7 +32,7 @@ provider:
 functions:
   app:
     handler: app.handler
-    timeout: 60
+    timeout: 120
     events:
       - httpApi:
           path: /slack/events
