@@ -1,6 +1,6 @@
 # slack-chatbot-lambda
 
-AWS Lambda で動作する ChatGPT モデルを使用した Slack Bot 
+AWS Lambda で動作する ChatGPT モデルを使用した Slack Bot
 
 ## 動作環境
 
@@ -36,11 +36,13 @@ oauth_config:
       - chat:write
       - chat:write.public
       - app_mentions:read
+      - channels:history
 settings:
   event_subscriptions:
     request_url: https://example.execute-api.us-east-1.amazonaws.com/slack/events
     bot_events:
       - app_mention
+      - message.channels
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false
