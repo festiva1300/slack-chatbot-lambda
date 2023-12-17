@@ -1,5 +1,5 @@
 slack-bolt
 python-lambda
 python-dotenv
-openai
+openai==0.27.4
 boto3
