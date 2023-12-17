@@ -5,25 +5,25 @@ except ImportError:
 
 import logging
 import os
-from xmlrpc.client import SYSTEM_ERROR
-from slack_bolt import App
-import openai
-import boto3
 import time
+from xmlrpc.client import SYSTEM_ERROR
 
-dynamodb = boto3.resource('dynamodb')
-TABLE_NAME = 'lambda-chatbot-app-history'
+import boto3
+import openai
+from slack_bolt import App
+
+dynamodb = boto3.resource("dynamodb")
+TABLE_NAME = "lambda-chatbot-app-history"
 
 table = dynamodb.Table(TABLE_NAME)
 
-COMMAND = os.environ["SLACK_COMMAND"]
 MODEL = os.environ["OPENAI_MODEL"]
 SYSTEM_CONTENT = "You are an excellent assistant."
 MAX_HISTORY = 20
 OPENAI_API_TIMEOUT = 50
 
 # OPENAIのAPI KEY
-api_key=os.environ["OPENAI_API_KEY"]
+api_key = os.environ["OPENAI_API_KEY"]
 
 # 動作確認用にデバッグレベルのロギングを有効にします
 # 本番運用では削除しても構いません
@@ -37,10 +37,10 @@ app = App(
     # 上でインストールしたときに発行されたアクセストークン
     # Settings > Install App で取得可能な値
     token=os.environ["SLACK_BOT_TOKEN"],
-
     # AWS Lamdba では、必ずこの設定を true にしておく
     process_before_response=True,
 )
+
 
 def respond_to_slack_within_3_seconds(body, ack):
     # リスナーの処理を 3 秒以内に完了
@@ -64,7 +64,7 @@ def process_mention(respond, body):
     history = get_history(history_id)
     if len(history) > 0:
         # 会話履歴がある場合はリプライメッセージ処理で対応(何もしない)
-        return 
+        return
 
     start_timestamp = int(time.time())
 
@@ -72,7 +72,7 @@ def process_mention(respond, body):
     message = body["event"]["text"]
     user_id = body["event"]["user"]
     prompt = create_prompt([], message)
-    
+
     # 回答の取得とSlackへの送信
     answer = send_prompt(prompt)
     post_message(channel_id, thread_ts, f"<@{user_id}> {answer}")
@@ -88,18 +88,18 @@ def process_message(respond, body):
 
     if "thread_ts" not in body["event"]:
         # 親メッセージには反応しない
-        return 
+        return
 
     start_timestamp = int(time.time())
 
     # 会話履歴の取得
-    thread_ts =  body["event"]["thread_ts"]
+    thread_ts = body["event"]["thread_ts"]
     channel_id = body["event"]["channel"]
     history_id = f"{channel_id}:{thread_ts}"
     history = get_history(history_id)
     if len(history) == 0:
         # 会話履歴がないスレッドには対応しない
-        return 
+        return
 
     # プロンプトの作成
     message = body["event"]["text"]
@@ -115,26 +115,30 @@ def process_message(respond, body):
 
 
 def save_history(history_id, message, answer, start_timestamp):
-        # dynamoDBにプロンプトを保存
-        items = [
-            {
-                'id': history_id,
-                'timestamp': start_timestamp,
-                'role': 'user',
-                'content': message
-            }
-        ]
+    # dynamoDBにプロンプトを保存
+    items = [
+        {
+            "id": history_id,
+            "timestamp": start_timestamp,
+            "role": "user",
+            "content": message,
+        }
+    ]
 
-        # dynamoDBに回答を挿入
-        items.append({
-            'id': history_id,
-            'timestamp': int(time.time()),
-            'role': 'assistant',
-            'content': answer
-        })
-        with table.batch_writer() as batch:
-            for item in items:
-                batch.put_item(Item=item)
+    # 日本語の入力をしてみる
+
+    # dynamoDBに回答を挿入
+    items.append(
+        {
+            "id": history_id,
+            "timestamp": int(time.time()),
+            "role": "assistant",
+            "content": answer,
+        }
+    )
+    with table.batch_writer() as batch:
+        for item in items:
+            batch.put_item(Item=item)
 
 
 def get_history(history_id):
@@ -145,14 +149,11 @@ def get_history(history_id):
     response = table.query(
         KeyConditionExpression="id = :id and #ts >= :timestamp",
         ExpressionAttributeNames={"#ts": "timestamp"},
-        ExpressionAttributeValues={
-            ":id": history_id,
-            ":timestamp": one_day_ago
-        },
-        ScanIndexForward=False, 
-        Limit=MAX_HISTORY
+        ExpressionAttributeValues={":id": history_id, ":timestamp": one_day_ago},
+        ScanIndexForward=False,
+        Limit=MAX_HISTORY,
     )
-    return response['Items']
+    return response["Items"]
 
 
 def create_prompt(history, message):
@@ -170,29 +171,23 @@ def post_message(channel_id, thread_ts, message):
     # スレッドに対してメッセージを返信する
     try:
         result = app.client.chat_postMessage(
-            channel=channel_id,
-            thread_ts=thread_ts,
-            text=message
+            channel=channel_id, thread_ts=thread_ts, text=message
         )
     except Exception as e:
         logging.error("Error sending postMessage event: {}".format(e))
+
 
 def send_prompt(messages):
     logging.debug(messages)
     # 対話履歴と最新のメンションの内容からプロンプトを作成してチャットモデルに送信する
 
-    try:        
-
+    try:
         # 回答を生成
         response = openai.ChatCompletion.create(
-            model=MODEL,
-            messages=messages,
-            temperature=0,
-            timeout = OPENAI_API_TIMEOUT
+            model=MODEL, messages=messages, temperature=0, timeout=OPENAI_API_TIMEOUT
         )
-        answer = response['choices'][0]['message']['content']
+        answer = response["choices"][0]["message"]["content"]
 
- 
     except openai.error.Timeout as e:
         answer = f"タイムアウトが発生しました: {str(e)}"
 
@@ -200,6 +195,7 @@ def send_prompt(messages):
         answer = f"例外が発生しました: {str(e)}"
 
     return answer
+
 
 # メンションに反応するように設定
 app.event("app_mention")(ack=respond_to_slack_within_3_seconds, lazy=[process_mention])
@@ -217,6 +213,7 @@ from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 # ロギングを AWS Lambda 向けに初期化します
 SlackRequestHandler.clear_all_log_handlers()
 logging.basicConfig(format="%(asctime)s %(message)s", level=logging.DEBUG)
+
 
 # AWS Lambda 環境で実行される関数
 def handler(event, context):
