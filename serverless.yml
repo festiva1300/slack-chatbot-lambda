@@ -3,7 +3,7 @@ service: lambda-chatbot-app
 provider:
   name: aws
   # Check https://docs.aws.amazon.com/lambda/latest/dg/lambda-python.html for available versions
-  runtime: python3.9
+  runtime: python3.10
   # Change the region to the one you normally use.
   region: us-east-1
   iam:
@@ -22,8 +22,9 @@ provider:
 
   environment:
     SERVERLESS_STAGE: ${opt:stage, 'prod'}
-    SLACK_COMMAND: '/chat'
-    OPENAI_MODEL: 'gpt-3.5-turbo'
+    #OPENAI_MODEL: 'gpt-3.5-turbo'
+    OPENAI_MODEL: 'gpt-4-1106-preview'
+    
     # Please export these before deploying
     SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
     SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
@@ -61,6 +62,7 @@ resources:
 # Files not to be included in the upload are prefixed with an '!' mark.
 package:
   patterns:
+    - "!.env"
     - "!.venv/**"
     - "!.secret/**"
     - "!node_modules/**"
@@ -70,5 +72,5 @@ plugins:
   - serverless-python-requirements
 custom:
   pythonRequirements:
-    zip: true
-    slim: true
+    #zip: true
+    #slim: true
