@@ -125,8 +125,6 @@ def save_history(history_id, message, answer, start_timestamp):
         }
     ]
 
-    # 日本語の入力をしてみる
-
     # dynamoDBに回答を挿入
     items.append(
         {
