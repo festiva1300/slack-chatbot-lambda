@@ -133,3 +133,4 @@ node_modules
 .serverless/
 .requirements.zip
 package*.json
+unzip_requirements.py
