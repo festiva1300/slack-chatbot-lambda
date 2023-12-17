@@ -54,7 +54,6 @@ settings:
 
 ```Bash
 $ sls plugin install -n serverless-python-requirements
-$ npm i -D serverless-dotenv-plugin
 ```
 
 
