@@ -1,12 +1,6 @@
-try:
-    import unzip_requirements
-except ImportError:
-    pass
-
 import logging
 import os
 import time
-from xmlrpc.client import SYSTEM_ERROR
 
 import boto3
 import openai
@@ -168,9 +162,7 @@ def create_prompt(history, message):
 def post_message(channel_id, thread_ts, message):
     # スレッドに対してメッセージを返信する
     try:
-        result = app.client.chat_postMessage(
-            channel=channel_id, thread_ts=thread_ts, text=message
-        )
+        _ = app.client.chat_postMessage(channel=channel_id, thread_ts=thread_ts, text=message)
     except Exception as e:
         logging.error("Error sending postMessage event: {}".format(e))
 
