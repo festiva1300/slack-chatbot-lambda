@@ -3,7 +3,7 @@ import os
 import time
 
 import boto3
-import openai
+from openai import OpenAI
 from slack_bolt import App
 
 dynamodb = boto3.resource("dynamodb")
@@ -14,10 +14,9 @@ table = dynamodb.Table(TABLE_NAME)
 MODEL = os.environ["OPENAI_MODEL"]
 SYSTEM_CONTENT = "You are an excellent assistant."
 MAX_HISTORY = 20
-OPENAI_API_TIMEOUT = 50
 
-# OPENAIのAPI KEY
-api_key = os.environ["OPENAI_API_KEY"]
+# gets API Key from environment variable OPENAI_API_KEY
+client = OpenAI()
 
 # 動作確認用にデバッグレベルのロギングを有効にします
 # 本番運用では削除しても構いません
@@ -173,13 +172,8 @@ def send_prompt(messages):
 
     try:
         # 回答を生成
-        response = openai.ChatCompletion.create(
-            model=MODEL, messages=messages, temperature=0, timeout=OPENAI_API_TIMEOUT
-        )
-        answer = response["choices"][0]["message"]["content"]
-
-    except openai.error.Timeout as e:
-        answer = f"タイムアウトが発生しました: {str(e)}"
+        response = client.chat.completions.create(model=MODEL, messages=messages, temperature=0)
+        answer = response.choices[0].message.content
 
     except Exception as e:
         answer = f"例外が発生しました: {str(e)}"
