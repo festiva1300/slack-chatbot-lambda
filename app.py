@@ -7,7 +7,7 @@ from openai import OpenAI
 from slack_bolt import App
 
 dynamodb = boto3.resource("dynamodb")
-TABLE_NAME = "lambda-chatbot-app-history"
+TABLE_NAME = os.environ["TABLE_NAME_HISTORY"]
 
 table = dynamodb.Table(TABLE_NAME)
 

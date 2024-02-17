@@ -3,12 +3,15 @@ frameworkVersion: '3'
 useDotenv: true
 
 service: lambda-chatbot-app
+
 provider:
   name: aws
   # Check https://docs.aws.amazon.com/lambda/latest/dg/lambda-python.html for available versions
   runtime: python3.10
   # Change the region to the one you normally use.
   region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
   iam:
     role:
       statements:
@@ -24,17 +27,18 @@ provider:
           Resource: "*"
 
   environment:
-    SERVERLESS_STAGE: ${opt:stage, 'prod'}
     #OPENAI_MODEL: 'gpt-3.5-turbo'
-    OPENAI_MODEL: 'gpt-4-1106-preview'
+    OPENAI_MODEL: 'gpt-4-turbo-preview'
     
     # Please export these before deploying
     SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
     SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
     OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    TABLE_NAME_HISTORY: ${self:service}-${self:provider.stage}-history
 # Endpoint List
 functions:
   app:
+    name: ${self:service}-${self:provider.stage}-app
     handler: app.handler
     timeout: 180
     events:
@@ -47,7 +51,7 @@ resources:
     ExampleTable:
       Type: "AWS::DynamoDB::Table"
       Properties:
-        TableName: "lambda-chatbot-app-history"
+        TableName: ${self:service}-${self:provider.stage}-history
         AttributeDefinitions:
           - AttributeName: "id"
             AttributeType: "S"
