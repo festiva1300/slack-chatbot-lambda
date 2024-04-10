@@ -83,6 +83,10 @@ def process_message(respond, body):
         # 親メッセージには反応しない
         return
 
+    if body["event"]["subtype"] == "bot_message":
+        # 自分自身の発言に反応しない
+        return
+
     start_timestamp = int(time.time())
 
     # 会話履歴の取得
