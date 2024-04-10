@@ -37,8 +37,7 @@ app = App(
 
 def respond_to_slack_within_3_seconds(body, ack):
     # リスナーの処理を 3 秒以内に完了
-    logging.debug(body)
-    ack()
+    ack("Accepted!")
 
 
 def process_mention(respond, body):
@@ -75,16 +74,14 @@ def process_mention(respond, body):
 
 
 def process_message(respond, body):
+    logging.debug(body)
+
     # リプライに対して返信する
     if "event" not in body:
         return
 
     if "thread_ts" not in body["event"]:
         # 親メッセージには反応しない
-        return
-
-    if body["event"]["subtype"] == "bot_message":
-        # 自分自身の発言に反応しない
         return
 
     start_timestamp = int(time.time())
