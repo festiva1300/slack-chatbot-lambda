@@ -34,7 +34,8 @@ provider:
     SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
     SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
     OPENAI_API_KEY: ${env:OPENAI_API_KEY}
-    TABLE_NAME_HISTORY: ${self:service}-${self:provider.stage}-history
+    TABLE_NAME_HISTORY: ${self:service}-${self:provider.stage}-message-history
+    TABLE_NAME_PREVENT_DOUBLE: ${self:service}-${self:provider.stage}-prevent-double
 # Endpoint List
 functions:
   app:
@@ -48,10 +49,10 @@ functions:
 
 resources:
   Resources:
-    ExampleTable:
+    HistoryTable:
       Type: "AWS::DynamoDB::Table"
       Properties:
-        TableName: ${self:service}-${self:provider.stage}-history
+        TableName: ${self:service}-${self:provider.stage}-message-history
         AttributeDefinitions:
           - AttributeName: "id"
             AttributeType: "S"
@@ -62,6 +63,19 @@ resources:
             KeyType: "HASH"
           - AttributeName: "timestamp"
             KeyType: "RANGE"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+    PreventDoubleTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        TableName: ${self:service}-${self:provider.stage}-prevent-double
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1

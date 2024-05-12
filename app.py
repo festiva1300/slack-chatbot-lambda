@@ -7,9 +7,11 @@ from openai import OpenAI
 from slack_bolt import App
 
 dynamodb = boto3.resource("dynamodb")
-TABLE_NAME = os.environ["TABLE_NAME_HISTORY"]
+TABLE_NAME_HISTORY = os.environ["TABLE_NAME_HISTORY"]
+TABLE_NAME_PREVENT_DOUBLE = os.environ["TABLE_NAME_PREVENT_DOUBLE"]
 
-table = dynamodb.Table(TABLE_NAME)
+table_history = dynamodb.Table(TABLE_NAME_HISTORY)
+table_prevent_double = dynamodb.Table(TABLE_NAME_PREVENT_DOUBLE)
 
 MODEL = os.environ["OPENAI_MODEL"]
 SYSTEM_CONTENT = "You are an excellent assistant."
@@ -45,6 +47,15 @@ def process_mention(respond, body):
     logging.debug(body)
     if "event" not in body:
         return
+
+    # 重複チェック
+    event_id = body["event_id"]
+    prevent_double = get_prevent_double(event_id)
+    if len(prevent_double) > 0:
+        return
+
+    # 処理するメッセージIDを保管
+    save_prevent_double(event_id)
 
     # 会話履歴の取得
     thread_ts = body["event"]["ts"]
@@ -83,6 +94,15 @@ def process_message(respond, body):
     if "thread_ts" not in body["event"]:
         # 親メッセージには反応しない
         return
+
+    # 重複チェック
+    event_id = body["event_id"]
+    prevent_double = get_prevent_double(event_id)
+    if len(prevent_double) > 0:
+        return
+
+    # 処理するメッセージIDを保管
+    save_prevent_double(event_id)
 
     start_timestamp = int(time.time())
 
@@ -128,7 +148,7 @@ def save_history(history_id, message, answer, start_timestamp):
             "content": answer,
         }
     )
-    with table.batch_writer() as batch:
+    with table_history.batch_writer() as batch:
         for item in items:
             batch.put_item(Item=item)
 
@@ -138,12 +158,26 @@ def get_history(history_id):
     one_day_ago = int(time.time()) - 24 * 60 * 60
 
     # dynamoDBから過去履歴を取得
-    response = table.query(
+    response = table_history.query(
         KeyConditionExpression="id = :id and #ts >= :timestamp",
         ExpressionAttributeNames={"#ts": "timestamp"},
         ExpressionAttributeValues={":id": history_id, ":timestamp": one_day_ago},
         ScanIndexForward=False,
         Limit=MAX_HISTORY,
+    )
+    return response["Items"]
+
+
+def save_prevent_double(event_id):
+    # dynamoDBにメッセージIDを保存
+    item = {"id": event_id}
+    table_prevent_double.put_item(Item=item)
+
+
+def get_prevent_double(event_id):
+    # dynamoDBからメッセージIDを取得
+    response = table_prevent_double.query(
+        KeyConditionExpression="id = :id", ExpressionAttributeValues={":id": event_id}
     )
     return response["Items"]
 
