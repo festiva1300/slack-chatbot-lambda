@@ -3,6 +3,7 @@ import os
 import time
 
 import boto3
+from botocore.exceptions import ClientError, ConditionalCheckFailedException
 from openai import OpenAI
 from slack_bolt import App
 
@@ -43,19 +44,15 @@ def respond_to_slack_within_3_seconds(body, ack):
 
 
 def process_mention(respond, body):
-    # メンションのメッセージに対して返信する
+    """メンションのメッセージに対して返信する"""
     logging.debug(body)
     if "event" not in body:
         return
 
     # 重複チェック
     event_id = body["event_id"]
-    prevent_double = get_prevent_double(event_id)
-    if len(prevent_double) > 0:
+    if not prevent_double(event_id):
         return
-
-    # 処理するメッセージIDを保管
-    save_prevent_double(event_id)
 
     # 会話履歴の取得
     thread_ts = body["event"]["ts"]
@@ -85,9 +82,8 @@ def process_mention(respond, body):
 
 
 def process_message(respond, body):
+    """リプライに対して返信する"""
     logging.debug(body)
-
-    # リプライに対して返信する
     if "event" not in body:
         return
 
@@ -97,12 +93,8 @@ def process_message(respond, body):
 
     # 重複チェック
     event_id = body["event_id"]
-    prevent_double = get_prevent_double(event_id)
-    if len(prevent_double) > 0:
+    if not prevent_double(event_id):
         return
-
-    # 処理するメッセージIDを保管
-    save_prevent_double(event_id)
 
     start_timestamp = int(time.time())
 
@@ -129,6 +121,7 @@ def process_message(respond, body):
 
 
 def save_history(history_id, message, answer, start_timestamp):
+    """会話履歴を保存"""
     # dynamoDBにプロンプトを保存
     items = [
         {
@@ -153,7 +146,8 @@ def save_history(history_id, message, answer, start_timestamp):
             batch.put_item(Item=item)
 
 
-def get_history(history_id):
+def get_history(history_id: str):
+    """過去の対話履歴を取得"""
     # 24時間前のUnix Time
     one_day_ago = int(time.time()) - 24 * 60 * 60
 
@@ -168,22 +162,25 @@ def get_history(history_id):
     return response["Items"]
 
 
-def save_prevent_double(event_id):
-    # dynamoDBにメッセージIDを保存
+def prevent_double(event_id):
+    """重複チェック"""
     item = {"id": event_id}
-    table_prevent_double.put_item(Item=item)
-
-
-def get_prevent_double(event_id):
-    # dynamoDBからメッセージIDを取得
-    response = table_prevent_double.query(
-        KeyConditionExpression="id = :id", ExpressionAttributeValues={":id": event_id}
-    )
-    return response["Items"]
+    try:
+        table_prevent_double.put_item(
+            Item=item,
+            ConditionExpression="attribute_not_exists(id)",
+        )
+    except ConditionalCheckFailedException:
+        return False
+    except ClientError as e:
+        # その他のクライアントエラーの場合
+        logging.error(f"Unexpected error: {e}")
+        return False
+    return True
 
 
 def create_prompt(history, message):
-    # 過去履歴からメッセージを生成
+    """過去履歴からメッセージを生成"""
     messages = [{"role": "system", "content": SYSTEM_CONTENT}]
     for item in history:
         messages.append({"role": item["role"], "content": item["content"]})
@@ -194,7 +191,7 @@ def create_prompt(history, message):
 
 
 def post_message(channel_id, thread_ts, message):
-    # スレッドに対してメッセージを返信する
+    """スレッドに対してメッセージを返信する"""
     try:
         _ = app.client.chat_postMessage(channel=channel_id, thread_ts=thread_ts, text=message)
     except Exception as e:
@@ -202,8 +199,8 @@ def post_message(channel_id, thread_ts, message):
 
 
 def send_prompt(messages):
+    """対話履歴と最新のメンションの内容からプロンプトを作成してチャットモデルに送信する"""
     logging.debug(messages)
-    # 対話履歴と最新のメンションの内容からプロンプトを作成してチャットモデルに送信する
 
     try:
         # 回答を生成
